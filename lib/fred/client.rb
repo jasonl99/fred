@@ -1,6 +1,12 @@
 module Fred
   
   class Client
+    class TooManyRequestsError < StandardError; end
+    class BadRequestError < StandardError; end
+    class NotFoundError < StandardError; end
+    class LockedError < StandardError; end
+    class InternalServerError < StandardError; end
+
     include HTTParty
     base_uri "https://api.stlouisfed.org/fred"
     format :xml
@@ -64,7 +70,9 @@ module Fred
     def default_options
       {:api_key => @api_key}
     end
-    
+    # Errors caught (and raised) here with specific codes are from the FRED API
+    # documentation at https://fred.stlouisfed.org/docs/api/fred/errors.html
+    # All non-200 responses will cause an error to be raised.
     def mashup(response)
       case response.code
       when 200
@@ -77,6 +85,18 @@ module Fred
             response
           end
         end
+      when 400
+        raise BadRequestError
+      when 404
+        raise NotFoundError
+      when 423
+        raise LockedError
+      when 429
+        raise TooManyRequestsError
+      when 500
+        raise InternalServerError
+      else
+        raise "Error: Unhandled response code #{response.code} - #{response.message}"
       end
     end
 
